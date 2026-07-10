@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agenda Clienti</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#b8511f">
+<meta name="theme-color" content="#b5567a">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -20,11 +20,11 @@
     --text: #1c1b19;
     --text-secondary: #726e68;
     --text-tertiary: #a3a099;
-    --accent: #b8511f;
-    --accent-bg: #fbf0e8;
-    --accent-border: #f0d3bd;
-    --accent-soft-text: #a56331;
-    --radius-lg: 14px;
+    --accent: #b5567a;
+    --accent-bg: #fbeef2;
+    --accent-border: #f0cddb;
+    --accent-soft-text: #a34f6e;
+    --radius-lg: 16px;
     --radius-md: 10px;
     --radius-sm: 7px;
     --shadow: 0 1px 2px rgba(20, 18, 14, 0.04), 0 1px 8px rgba(20, 18, 14, 0.03);
@@ -78,7 +78,7 @@
   button.primary { background: var(--text); color: #fff; border-color: var(--text); }
   button.primary:hover { background: #3a3733; }
   button.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
-  button.accent:hover { background: #a04619; }
+  button.accent:hover { background: #954764; }
   button.danger { color: #9c3b23; }
   button.small { padding: 6px 10px; font-size: 12.5px; }
 
@@ -206,7 +206,7 @@
         <div class="field"><label>Data</label><input type="date" id="a_date" required></div>
         <div class="field"><label>Ora</label><input type="time" id="a_time"></div>
       </div>
-      <div class="field"><label>Motivo</label><input type="text" id="a_reason" placeholder="Es. Prima visita, follow-up..."></div>
+      <div class="field"><label>Servizio</label><input type="text" id="a_reason" placeholder="Es. Taglio e piega, colore, trattamento..."></div>
       <div class="field"><label>Stato</label>
         <select id="a_status">
           <option value="programmato">Programmato</option>
@@ -601,5 +601,4 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-</body>
-</html>
+</

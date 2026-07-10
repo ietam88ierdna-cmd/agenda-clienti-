@@ -1,8 +1,9 @@
-// Service worker: mette in cache i file dell'app al primo avvio così l'app
-// si apre anche offline. Tutti i dati restano comunque in localStorage,
-// gestiti direttamente da index.html: questo file serve solo a far
-// caricare l'app (l'involucro), non i dati.
-const CACHE_NAME = 'agenda-clienti-v1';
+// Service worker: fa funzionare l'app anche offline. Usa una strategia
+// "rete prima, cache come riserva": ogni volta che c'è connessione va a
+// controllare la versione più recente sul sito e aggiorna la cache, così
+// gli aggiornamenti futuri arrivano sempre. Solo se non c'è connessione
+// usa l'ultima copia salvata.
+const CACHE_NAME = 'agenda-clienti-v2';
 const FILES_TO_CACHE = [
   './index.html',
   './manifest.json',
@@ -28,6 +29,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
