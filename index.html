@@ -136,6 +136,23 @@
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
+  .reminder-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: var(--accent-soft-text);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 22px;
+  }
+  .reminder-text strong { color: var(--accent); }
+  .reminder-banner .enable-notif-btn { background: #fff; border-color: var(--accent-border); }
+
   @media (max-width: 640px) {
     .page { padding: 22px 14px 70px; }
     .agenda-card { padding: 16px; }
@@ -151,6 +168,8 @@
     <h1>Agenda Clienti</h1>
     <p class="tagline">Chi incontro prossimamente e quando.</p>
   </header>
+
+  <div id="reminderBanner" class="reminder-banner"></div>
 
   <section class="agenda-section">
     <div class="section-head">
@@ -287,6 +306,71 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ clients, appointments }));
 }
 
+// --- Promemoria entro 12 ore (nessun server: funziona solo quando apri l'app) ---
+// Un appuntamento ancora "programmato" rientra nel promemoria se il suo istante
+// (data + ora) cade tra adesso e tra 12 ore da adesso. Questo controllo gira al
+// caricamento e poi ogni 15 minuti finché l'app resta aperta — non arriva da solo
+// se il telefono resta chiuso, perché non c'è un server che lo faccia scattare.
+const NOTIFIED_KEY = 'agendaClientiNotifiedIds';
+
+function getNotifiedIds() {
+  try { return new Set(JSON.parse(localStorage.getItem(NOTIFIED_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function saveNotifiedIds(set) {
+  localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...set]));
+}
+function appointmentsWithin12h() {
+  const now = new Date();
+  const limit = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+  return appointments.filter(a => {
+    if (a.status !== 'programmato') return false;
+    const dt = new Date(a.date + 'T' + (a.time || '00:00') + ':00');
+    return dt >= now && dt <= limit;
+  }).sort((a, b) => (a.date + (a.time || '00:00')).localeCompare(b.date + (b.time || '00:00')));
+}
+function renderReminderBanner() {
+  const banner = document.getElementById('reminderBanner');
+  const due = appointmentsWithin12h();
+  if (due.length === 0) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+  const names = due.map(a => {
+    const c = clientById(a.clientId);
+    return `${c ? c.name : '—'}${a.time ? ' (' + a.time + ')' : ''}`;
+  }).join(', ');
+  const label = due.length === 1 ? 'Appuntamento nelle prossime 12 ore' : `${due.length} appuntamenti nelle prossime 12 ore`;
+  banner.style.display = 'flex';
+  banner.innerHTML = `
+    <span class="reminder-text">⏰ <strong>${label}:</strong> ${escapeHtml(names)}</span>
+    ${('Notification' in window && Notification.permission === 'default')
+      ? '<button class="small enable-notif-btn">Attiva notifiche</button>'
+      : ''}
+  `;
+  const btn = banner.querySelector('.enable-notif-btn');
+  if (btn) btn.addEventListener('click', requestNotificationPermission);
+}
+function checkAndNotify() {
+  const due = appointmentsWithin12h();
+  if (due.length === 0) return;
+  const notified = getNotifiedIds();
+  const fresh = due.filter(a => !notified.has(a.id));
+  if (fresh.length === 0) return;
+  fresh.forEach(a => notified.add(a.id));
+  saveNotifiedIds(notified);
+  if ('Notification' in window && Notification.permission === 'granted') {
+    fresh.forEach(a => {
+      const c = clientById(a.clientId);
+      new Notification('Appuntamento tra meno di 12 ore', {
+        body: `${c ? c.name : 'Cliente'} — ${a.reason || 'Appuntamento'}${a.time ? ' alle ' + a.time : ''}`,
+        icon: 'icon-192.png',
+      });
+    });
+  }
+}
+function requestNotificationPermission() {
+  if (!('Notification' in window)) { alert('Le notifiche non sono supportate su questo browser.'); return; }
+  Notification.requestPermission().then(() => { renderReminderBanner(); checkAndNotify(); });
+}
+
 // --- Core logic ---
 // "Prossimi appuntamenti": ogni appuntamento con data >= oggi e stato ancora
 // "programmato" (non completato, non annullato) viene ordinato dal più vicino
@@ -328,6 +412,7 @@ function clientById(id) { return clients.find(c => c.id === id); }
 
 // --- Rendering ---
 function render() {
+  renderReminderBanner();
   renderAgenda();
   renderClients();
 }
@@ -593,6 +678,8 @@ document.getElementById('searchInput').addEventListener('input', () => renderCli
 
 loadData();
 render();
+checkAndNotify();
+setInterval(checkAndNotify, 15 * 60 * 1000);
 
 // Registra il service worker per il funzionamento offline (PWA).
 if ('serviceWorker' in navigator) {
@@ -601,4 +688,5 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-</
+</body>
+</html>
