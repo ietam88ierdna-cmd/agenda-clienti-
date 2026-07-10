@@ -153,10 +153,38 @@
   .reminder-text strong { color: var(--accent); }
   .reminder-banner .enable-notif-btn { background: #fff; border-color: var(--accent-border); }
 
+  /* ---------- Agendina ---------- */
+  .agendina-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .agendina-toolbar input[type=date] { width: auto; flex: none; }
+  .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .slot { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 12.5px; cursor: pointer; background: var(--surface); text-align: left; }
+  .slot:hover { background: var(--border-soft); }
+  .slot-time { font-weight: 650; display: block; }
+  .slot.free { border-style: dashed; color: var(--text-secondary); }
+  .slot.occupied { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent-soft-text); }
+  .slot.occupied .slot-name { display: block; color: var(--text); font-weight: 550; margin-top: 2px; }
+
+  /* ---------- Da richiamare ---------- */
+  .recall-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 10px; }
+  .recall-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .recall-name { font-weight: 650; font-size: 15px; }
+  .recall-meta { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+  .recall-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
+  .recall-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
+  .whatsapp-btn { background: #25d366; color: #fff; border-color: #25d366; }
+  .whatsapp-btn:hover { background: #1ebd59; }
+
+  /* ---------- Impostazioni ---------- */
+  .settings-details { margin-bottom: 44px; }
+  .settings-details summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); font-weight: 600; padding: 4px 0; }
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .settings-grid .field { margin-bottom: 0; }
+
   @media (max-width: 640px) {
     .page { padding: 22px 14px 70px; }
     .agenda-card { padding: 16px; }
     .client-detail-grid { grid-template-columns: 1fr; }
+    .settings-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -178,6 +206,39 @@
     </div>
     <div id="agendaList" class="agenda-list"></div>
   </section>
+
+  <section class="agendina-section">
+    <div class="section-head">
+      <h2>Agendina</h2>
+      <span class="section-sub" id="agendinaCount"></span>
+    </div>
+    <div class="agendina-toolbar">
+      <input type="date" id="agendinaDate">
+      <span class="section-sub" style="font-size:12.5px;">Tocca uno slot libero per prenotare</span>
+    </div>
+    <div id="slotsGrid" class="slots-grid"></div>
+  </section>
+
+  <section class="recall-section">
+    <div class="section-head">
+      <h2>Da richiamare</h2>
+      <span class="section-sub" id="recallCount"></span>
+    </div>
+    <div id="recallList"></div>
+  </section>
+
+  <details class="settings-details">
+    <summary>Impostazioni orari e richiamo</summary>
+    <div class="settings-grid">
+      <div class="field"><label>Apertura</label><input type="time" id="s_openTime"></div>
+      <div class="field"><label>Chiusura</label><input type="time" id="s_closeTime"></div>
+      <div class="field"><label>Durata slot (minuti)</label><input type="number" id="s_slotMinutes" min="5" step="5"></div>
+      <div class="field"><label>Richiama dopo (giorni)</label><input type="number" id="s_recallDays" min="1"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="primary" id="saveSettingsBtn">Salva impostazioni</button>
+    </div>
+  </details>
 
   <section class="directory-section">
     <div class="section-head">
@@ -219,8 +280,7 @@
     <h3 id="apptModalTitle">Nuovo appuntamento</h3>
     <form id="apptForm">
       <input type="hidden" id="a_id">
-      <input type="hidden" id="a_clientId">
-      <div class="field"><label>Cliente</label><div id="a_clientName" style="font-size:14px; font-weight:600; padding: 6px 0;"></div></div>
+      <div class="field"><label>Cliente</label><select id="a_clientId" required></select></div>
       <div class="field-row">
         <div class="field"><label>Data</label><input type="date" id="a_date" required></div>
         <div class="field"><label>Ora</label><input type="time" id="a_time"></div>
@@ -288,6 +348,18 @@ function buildSeed(today) {
 let clients = [];
 let appointments = [];
 let openClientId = null;
+
+const SETTINGS_KEY = 'agendaClientiSettings';
+const DEFAULT_SETTINGS = { openTime: '09:00', closeTime: '19:00', slotMinutes: 30, recallDays: 28 };
+let settings = { ...DEFAULT_SETTINGS };
+
+function loadSettings() {
+  const stored = localStorage.getItem(SETTINGS_KEY);
+  settings = stored ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) } : { ...DEFAULT_SETTINGS };
+}
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
 
 function loadData() {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -391,6 +463,62 @@ function clientHistory(clientId) {
     .sort((a, b) => (b.date + (b.time || '00:00')).localeCompare(a.date + (a.time || '00:00')));
 }
 
+// --- Agendina: slot liberi/occupati ---
+// Genera gli orari tra apertura e chiusura ogni "slotMinutes". Uno slot è
+// "occupato" se esiste un appuntamento (non annullato) il cui orario cade
+// dentro quello slot (es. le 10:15 occupano lo slot delle 10:00 se gli slot
+// sono da 30 minuti). Il minutaggio è calcolato con semplice aritmetica sui
+// numeri ora/minuto, senza oggetti Date, per evitare ambiguità di fuso orario.
+function toMinutes(time) { const [h, m] = time.split(':').map(Number); return h * 60 + m; }
+function generateSlots() {
+  const slots = [];
+  let [h, m] = settings.openTime.split(':').map(Number);
+  const [ch, cm] = settings.closeTime.split(':').map(Number);
+  const step = settings.slotMinutes;
+  while (h < ch || (h === ch && m < cm)) {
+    slots.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
+    m += step;
+    if (m >= 60) { m -= 60; h += 1; }
+  }
+  return slots;
+}
+function slotOccupant(dateStr, time) {
+  const start = toMinutes(time);
+  const end = start + settings.slotMinutes;
+  return appointments.find(a =>
+    a.date === dateStr && a.status !== 'annullato' &&
+    toMinutes(a.time || '00:00') >= start && toMinutes(a.time || '00:00') < end
+  );
+}
+
+// --- Da richiamare ---
+// Un cliente è "da richiamare" se il suo appuntamento completato più recente
+// risale ad almeno "recallDays" giorni fa, e non ha già un appuntamento
+// futuro ancora "programmato" (altrimenti l'ha già prenotato da solo).
+// Ordinati dal più scaduto al meno scaduto.
+function recallCandidates() {
+  const today = todayISO();
+  return clients.map(c => {
+    const lastDone = clientHistory(c.id).find(a => a.status === 'completato');
+    if (!lastDone) return null;
+    const hasUpcoming = appointments.some(a => a.clientId === c.id && a.status === 'programmato' && a.date >= today);
+    if (hasUpcoming) return null;
+    const daysSince = dayDiff(today, lastDone.date);
+    if (daysSince < settings.recallDays) return null;
+    return { client: c, lastDone, daysSince };
+  }).filter(Boolean).sort((a, b) => b.daysSince - a.daysSince);
+}
+function whatsappLink(client, message) {
+  let digits = (client.phone || '').replace(/\D/g, '');
+  if (digits && !digits.startsWith('39') && digits.length <= 11) digits = '39' + digits;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+function recallMessage(client, daysSince) {
+  const weeks = Math.round(daysSince / 7);
+  const firstName = (client.name || '').split(' ')[0];
+  return `Ciao ${firstName}, sono passate ${weeks} settimane dal tuo ultimo appuntamento. Vuoi prenotare il prossimo? 💇`;
+}
+
 function whenLabel(dateStr) {
   const today = todayISO();
   const diff = dayDiff(dateStr, today);
@@ -414,7 +542,64 @@ function clientById(id) { return clients.find(c => c.id === id); }
 function render() {
   renderReminderBanner();
   renderAgenda();
+  renderAgendina();
+  renderRecall();
   renderClients();
+}
+
+function renderAgendina() {
+  const dateInput = document.getElementById('agendinaDate');
+  if (!dateInput.value) dateInput.value = todayISO();
+  const dateStr = dateInput.value;
+  const slots = generateSlots();
+  const grid = document.getElementById('slotsGrid');
+  const freeCount = slots.filter(t => !slotOccupant(dateStr, t)).length;
+  document.getElementById('agendinaCount').textContent = `${freeCount} liberi su ${slots.length}`;
+  grid.innerHTML = slots.map(t => {
+    const occ = slotOccupant(dateStr, t);
+    if (occ) {
+      const c = clientById(occ.clientId);
+      return `<button type="button" class="slot occupied" data-appt-id="${occ.id}">
+        <span class="slot-time">${t}</span>
+        <span class="slot-name">${escapeHtml(c ? c.name : '—')}</span>
+      </button>`;
+    }
+    return `<button type="button" class="slot free" data-slot-time="${t}">
+      <span class="slot-time">${t}</span>Libero
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('.slot.occupied').forEach(btn => {
+    btn.addEventListener('click', () => openApptModal(btn.dataset.apptId));
+  });
+  grid.querySelectorAll('.slot.free').forEach(btn => {
+    btn.addEventListener('click', () => openApptModalForSlot(dateStr, btn.dataset.slotTime));
+  });
+}
+
+function renderRecall() {
+  const list = document.getElementById('recallList');
+  const candidates = recallCandidates();
+  document.getElementById('recallCount').textContent = candidates.length ? `${candidates.length} da richiamare` : '';
+  if (candidates.length === 0) {
+    list.innerHTML = '<div class="empty">Nessun cliente da richiamare al momento.</div>';
+    return;
+  }
+  list.innerHTML = candidates.map(({ client, lastDone, daysSince }) => {
+    const weeks = Math.round(daysSince / 7);
+    return `
+      <div class="recall-card">
+        <div class="recall-top">
+          <span class="recall-name">${escapeHtml(client.name)}</span>
+          <span class="recall-meta">${weeks} settimane fa</span>
+        </div>
+        <div class="recall-sub">Ultimo appuntamento: ${escapeHtml(lastDone.reason || 'Appuntamento')} — ${formatDateFull(lastDone.date)}</div>
+        <div class="recall-footer">
+          <a class="small whatsapp-btn" style="text-decoration:none; display:inline-block;" target="_blank" rel="noopener"
+             href="${whatsappLink(client, recallMessage(client, daysSince))}">Scrivi su WhatsApp</a>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderAgenda() {
@@ -604,17 +789,22 @@ function handleClientSubmit(e) {
 }
 
 // --- Appointment modal ---
+function populateClientSelect(selectedId) {
+  const select = document.getElementById('a_clientId');
+  const sorted = [...clients].sort((a, b) => a.name.localeCompare(b.name));
+  select.innerHTML = '<option value="" disabled>-- seleziona cliente --</option>' +
+    sorted.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  select.value = selectedId || '';
+}
 function openApptModal(apptId, clientIdForNew) {
   document.getElementById('apptForm').reset();
   document.getElementById('a_id').value = '';
   document.getElementById('apptDeleteBtn').style.display = 'none';
   if (apptId) {
     const a = appointments.find(x => x.id === apptId);
-    const c = clientById(a.clientId);
     document.getElementById('apptModalTitle').textContent = 'Modifica appuntamento';
     document.getElementById('a_id').value = a.id;
-    document.getElementById('a_clientId').value = a.clientId;
-    document.getElementById('a_clientName').textContent = c ? c.name : '—';
+    populateClientSelect(a.clientId);
     document.getElementById('a_date').value = a.date;
     document.getElementById('a_time').value = a.time || '';
     document.getElementById('a_reason').value = a.reason || '';
@@ -622,14 +812,19 @@ function openApptModal(apptId, clientIdForNew) {
     document.getElementById('a_notes').value = a.notes || '';
     document.getElementById('apptDeleteBtn').style.display = 'inline-block';
   } else {
-    const c = clientById(clientIdForNew);
     document.getElementById('apptModalTitle').textContent = 'Nuovo appuntamento';
-    document.getElementById('a_clientId').value = clientIdForNew;
-    document.getElementById('a_clientName').textContent = c ? c.name : '—';
+    populateClientSelect(clientIdForNew);
     document.getElementById('a_date').value = todayISO();
     document.getElementById('a_status').value = 'programmato';
   }
   document.getElementById('apptModalBackdrop').classList.add('open');
+}
+// Prenotazione rapida dall'agendina: stesso modale, ma con data/ora già
+// compilate dallo slot su cui si è cliccato, cliente ancora da scegliere.
+function openApptModalForSlot(dateStr, time) {
+  openApptModal(null, null);
+  document.getElementById('a_date').value = dateStr;
+  document.getElementById('a_time').value = time;
 }
 function closeApptModal() { document.getElementById('apptModalBackdrop').classList.remove('open'); }
 
@@ -676,7 +871,27 @@ document.getElementById('apptDeleteBtn').addEventListener('click', deleteAppt);
 
 document.getElementById('searchInput').addEventListener('input', () => renderClients());
 
+document.getElementById('agendinaDate').addEventListener('change', () => renderAgendina());
+
+function fillSettingsForm() {
+  document.getElementById('s_openTime').value = settings.openTime;
+  document.getElementById('s_closeTime').value = settings.closeTime;
+  document.getElementById('s_slotMinutes').value = settings.slotMinutes;
+  document.getElementById('s_recallDays').value = settings.recallDays;
+}
+document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+  const openTime = document.getElementById('s_openTime').value || DEFAULT_SETTINGS.openTime;
+  const closeTime = document.getElementById('s_closeTime').value || DEFAULT_SETTINGS.closeTime;
+  const slotMinutes = parseInt(document.getElementById('s_slotMinutes').value, 10) || DEFAULT_SETTINGS.slotMinutes;
+  const recallDays = parseInt(document.getElementById('s_recallDays').value, 10) || DEFAULT_SETTINGS.recallDays;
+  settings = { openTime, closeTime, slotMinutes, recallDays };
+  saveSettings();
+  render();
+});
+
 loadData();
+loadSettings();
+fillSettingsForm();
 render();
 checkAndNotify();
 setInterval(checkAndNotify, 15 * 60 * 1000);
