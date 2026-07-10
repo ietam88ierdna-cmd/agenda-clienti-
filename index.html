@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Clienti</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b8511f">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Agenda">
+
+<style>
+  :root {
+    --bg: #faf9f7;
+    --surface: #ffffff;
+    --border: #e9e6e1;
+    --border-soft: #f1efeb;
+    --text: #1c1b19;
+    --text-secondary: #726e68;
+    --text-tertiary: #a3a099;
+    --accent: #b8511f;
+    --accent-bg: #fbf0e8;
+    --accent-border: #f0d3bd;
+    --accent-soft-text: #a56331;
+    --radius-lg: 14px;
+    --radius-md: 10px;
+    --radius-sm: 7px;
+    --shadow: 0 1px 2px rgba(20, 18, 14, 0.04), 0 1px 8px rgba(20, 18, 14, 0.03);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 780px; margin: 0 auto; padding: 32px 20px 80px; }
+  .app-header { margin-bottom: 32px; }
+  .app-header h1 { font-size: 21px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .app-header .tagline { color: var(--text-secondary); font-size: 14px; margin: 0; }
+
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .section-head h2 { font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); margin: 0; }
+  .section-sub { font-size: 12px; color: var(--text-tertiary); }
+
+  /* ---------- Agenda (dominant) ---------- */
+  .agenda-section { margin-bottom: 44px; }
+  .agenda-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .agenda-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow); }
+  .agenda-card.level-today { border-color: var(--accent-border); }
+
+  .agenda-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .agenda-id { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .agenda-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-tertiary); opacity: 0.35; margin-top: 6px; }
+  .level-today .agenda-dot { background: var(--accent); opacity: 1; box-shadow: 0 0 0 3px var(--accent-bg); }
+  .level-soon .agenda-dot { background: var(--accent); opacity: 0.55; }
+
+  .agenda-name-wrap { min-width: 0; }
+  .agenda-name { font-weight: 650; font-size: 16px; letter-spacing: -0.005em; }
+  .agenda-reason { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+
+  .agenda-when { flex: none; font-size: 11px; font-weight: 650; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: var(--text-tertiary); background: var(--border-soft); white-space: nowrap; }
+  .level-today .agenda-when { color: var(--accent); background: var(--accent-bg); }
+  .level-soon .agenda-when { color: var(--accent-soft-text); background: var(--accent-bg); opacity: 0.75; }
+
+  .agenda-note { font-size: 12.5px; color: var(--text-secondary); margin-top: 10px; line-height: 1.5; }
+  .agenda-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+  .agenda-empty { color: var(--text-secondary); font-size: 13.5px; padding: 24px; text-align: center; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius-lg); }
+
+  /* ---------- buttons / inputs ---------- */
+  button { font-family: inherit; padding: 9px 13px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13.5px; transition: background 120ms ease; }
+  button:hover { background: var(--border-soft); }
+  button.primary { background: var(--text); color: #fff; border-color: var(--text); }
+  button.primary:hover { background: #3a3733; }
+  button.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.accent:hover { background: #a04619; }
+  button.danger { color: #9c3b23; }
+  button.small { padding: 6px 10px; font-size: 12.5px; }
+
+  input[type=text], input[type=search], input[type=date], input[type=time], select, textarea {
+    font-family: inherit; font-size: 13.5px; padding: 9px 11px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-bg); }
+  textarea { resize: vertical; min-height: 60px; }
+
+  /* ---------- Directory ---------- */
+  .toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+  #searchInput { flex: 1; }
+
+  .client-list { display: flex; flex-direction: column; gap: 10px; }
+  .client-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+  .client-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; cursor: pointer; }
+  .client-summary:hover { background: var(--border-soft); }
+  .client-name { font-weight: 600; font-size: 14.5px; }
+  .client-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+  .client-count { font-size: 11.5px; color: var(--text-tertiary); white-space: nowrap; }
+  .chevron { transition: transform 160ms ease; color: var(--text-tertiary); flex: none; }
+  .client-card.open .chevron { transform: rotate(90deg); }
+
+  .client-detail { display: none; padding: 4px 18px 18px; border-top: 1px solid var(--border-soft); }
+  .client-card.open .client-detail { display: block; }
+  .client-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 13px; margin: 14px 0; }
+  .client-detail-grid div span { color: var(--text-tertiary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; display: block; margin-bottom: 2px; }
+  .client-notes { font-size: 13px; color: var(--text-secondary); margin: 10px 0 14px; line-height: 1.5; }
+  .client-actions { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+
+  .history-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .history-head h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); margin: 0; font-weight: 650; }
+
+  .history-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+  .history-item:last-child { border-bottom: none; }
+  .history-main { min-width: 0; }
+  .history-date { font-size: 13px; font-weight: 600; }
+  .history-reason { font-size: 12.5px; color: var(--text-secondary); margin-top: 1px; }
+  .history-note { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+  .history-status { font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; background: var(--border-soft); color: var(--text-tertiary); white-space: nowrap; height: fit-content; }
+  .history-status.completato { background: #eaf3ec; color: #3a7a4a; }
+  .history-status.annullato { background: #f5eceb; color: #9c3b23; text-decoration: line-through; }
+  .history-actions { display: flex; gap: 4px; flex: none; }
+
+  .empty { color: var(--text-secondary); font-size: 13px; padding: 24px 16px; text-align: center; }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(20, 18, 14, 0.32); align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(20,18,14,0.18); }
+  .modal h3 { margin: 0 0 16px; font-size: 16px; font-weight: 650; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 550; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+  @media (max-width: 640px) {
+    .page { padding: 22px 14px 70px; }
+    .agenda-card { padding: 16px; }
+    .client-detail-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="app-header">
+    <h1>Agenda Clienti</h1>
+    <p class="tagline">Chi incontro prossimamente e quando.</p>
+  </header>
+
+  <section class="agenda-section">
+    <div class="section-head">
+      <h2>Prossimi appuntamenti</h2>
+      <span class="section-sub" id="agendaCount"></span>
+    </div>
+    <div id="agendaList" class="agenda-list"></div>
+  </section>
+
+  <section class="directory-section">
+    <div class="section-head">
+      <h2>Clienti</h2>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="searchInput" placeholder="Cerca per nome, telefono, email o note...">
+      <button class="primary" id="addClientBtn">+ Cliente</button>
+    </div>
+    <div id="clientList" class="client-list"></div>
+    <div id="emptyMsg" class="empty" style="display:none;">Nessun cliente trovato.</div>
+  </section>
+
+</div>
+
+<!-- Modale cliente -->
+<div class="modal-backdrop" id="clientModalBackdrop">
+  <div class="modal">
+    <h3 id="clientModalTitle">Nuovo cliente</h3>
+    <form id="clientForm">
+      <input type="hidden" id="c_id">
+      <div class="field"><label>Nome</label><input type="text" id="c_name" required></div>
+      <div class="field-row">
+        <div class="field"><label>Telefono</label><input type="text" id="c_phone"></div>
+        <div class="field"><label>Email</label><input type="text" id="c_email"></div>
+      </div>
+      <div class="field"><label>Note</label><textarea id="c_notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" id="clientCancelBtn">Annulla</button>
+        <button type="submit" class="primary">Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modale appuntamento -->
+<div class="modal-backdrop" id="apptModalBackdrop">
+  <div class="modal">
+    <h3 id="apptModalTitle">Nuovo appuntamento</h3>
+    <form id="apptForm">
+      <input type="hidden" id="a_id">
+      <input type="hidden" id="a_clientId">
+      <div class="field"><label>Cliente</label><div id="a_clientName" style="font-size:14px; font-weight:600; padding: 6px 0;"></div></div>
+      <div class="field-row">
+        <div class="field"><label>Data</label><input type="date" id="a_date" required></div>
+        <div class="field"><label>Ora</label><input type="time" id="a_time"></div>
+      </div>
+      <div class="field"><label>Motivo</label><input type="text" id="a_reason" placeholder="Es. Prima visita, follow-up..."></div>
+      <div class="field"><label>Stato</label>
+        <select id="a_status">
+          <option value="programmato">Programmato</option>
+          <option value="completato">Completato</option>
+          <option value="annullato">Annullato</option>
+        </select>
+      </div>
+      <div class="field"><label>Note</label><textarea id="a_notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="danger" id="apptDeleteBtn" style="display:none; margin-right:auto;">Elimina</button>
+        <button type="button" id="apptCancelBtn">Annulla</button>
+        <button type="submit" class="primary">Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'agendaClientiData';
+
+// --- Local date helpers (no UTC string conversion, no DST drift) ---
+function toLocalISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function todayISO() { return toLocalISO(new Date()); }
+function dayDiff(isoLater, isoEarlier) {
+  const [y1, m1, d1] = isoLater.split('-').map(Number);
+  const [y2, m2, d2] = isoEarlier.split('-').map(Number);
+  return Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y2, m2 - 1, d2)) / 86400000);
+}
+
+// --- Seed data ---
+function buildSeed(today) {
+  const off = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return toLocalISO(d); };
+  const clients = [
+    { id: 'cl-1', name: 'Giulia Bianchi', phone: '333 111 2222', email: 'giulia.bianchi@example.com', notes: 'Preferisce appuntamenti al mattino.' },
+    { id: 'cl-2', name: 'Marco Conti', phone: '333 222 3333', email: 'marco.conti@example.com', notes: 'Nuovo cliente, arrivato tramite passaparola.' },
+    { id: 'cl-3', name: 'Elena Rossi', phone: '333 333 4444', email: 'elena.rossi@example.com', notes: 'Cliente storica, molto puntuale.' },
+    { id: 'cl-4', name: 'Paolo Ferrari', phone: '333 444 5555', email: 'paolo.ferrari@example.com', notes: 'Cliente saltuario, richiamare solo se necessario.' },
+    { id: 'cl-5', name: 'Sara Moretti', phone: '333 555 6666', email: 'sara.moretti@example.com', notes: 'Preferisce il tardo pomeriggio.' },
+  ];
+  const appointments = [
+    { id: 'ap-1', clientId: 'cl-1', date: off(-20), time: '09:00', reason: 'Consulenza iniziale', status: 'completato', notes: 'Prima valutazione, tutto ok.' },
+    { id: 'ap-2', clientId: 'cl-1', date: off(2), time: '10:00', reason: 'Follow-up', status: 'programmato', notes: '' },
+    { id: 'ap-3', clientId: 'cl-2', date: off(1), time: '15:00', reason: 'Prima visita', status: 'programmato', notes: 'Portare documentazione.' },
+    { id: 'ap-4', clientId: 'cl-3', date: off(-56), time: '09:30', reason: 'Revisione annuale', status: 'completato', notes: '' },
+    { id: 'ap-5', clientId: 'cl-3', date: off(-22), time: '11:00', reason: 'Controllo intermedio', status: 'completato', notes: '' },
+    { id: 'ap-6', clientId: 'cl-3', date: off(5), time: '09:30', reason: 'Chiusura pratica', status: 'programmato', notes: '' },
+    { id: 'ap-7', clientId: 'cl-4', date: off(-99), time: '09:00', reason: 'Consulenza una tantum', status: 'completato', notes: '' },
+    { id: 'ap-8', clientId: 'cl-5', date: off(-39), time: '17:00', reason: 'Prima seduta', status: 'completato', notes: '' },
+    { id: 'ap-9', clientId: 'cl-5', date: off(0), time: '17:00', reason: 'Seduta di oggi', status: 'programmato', notes: '' },
+  ];
+  return { clients, appointments };
+}
+
+// --- State ---
+let clients = [];
+let appointments = [];
+let openClientId = null;
+
+function loadData() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    const data = JSON.parse(stored);
+    clients = data.clients || [];
+    appointments = data.appointments || [];
+  } else {
+    const seed = buildSeed(new Date());
+    clients = seed.clients;
+    appointments = seed.appointments;
+    saveData();
+  }
+}
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ clients, appointments }));
+}
+
+// --- Core logic ---
+// "Prossimi appuntamenti": ogni appuntamento con data >= oggi e stato ancora
+// "programmato" (non completato, non annullato) viene ordinato dal più vicino
+// al più lontano (data, poi ora). Segnare un appuntamento come completato lo
+// fa quindi sparire da questa lista — resta comunque nello storico del cliente.
+// Confronto fatto su stringhe "YYYY-MM-DD"+"HH:MM", che ordinano già correttamente
+// in ordine cronologico senza bisogno di aritmetica su oggetti Date.
+function upcomingAppointments() {
+  const today = todayISO();
+  return appointments
+    .filter(a => a.date >= today && a.status === 'programmato')
+    .sort((a, b) => (a.date + (a.time || '00:00')).localeCompare(b.date + (b.time || '00:00')));
+}
+// Storico cliente: tutti gli appuntamenti di quel cliente, dal più recente al più vecchio.
+function clientHistory(clientId) {
+  return appointments
+    .filter(a => a.clientId === clientId)
+    .sort((a, b) => (b.date + (b.time || '00:00')).localeCompare(a.date + (a.time || '00:00')));
+}
+
+function whenLabel(dateStr) {
+  const today = todayISO();
+  const diff = dayDiff(dateStr, today);
+  if (diff === 0) return { text: 'Oggi', level: 'today' };
+  if (diff === 1) return { text: 'Domani', level: 'soon' };
+  if (diff > 1 && diff <= 6) return { text: `Tra ${diff} giorni`, level: 'soon' };
+  const d = new Date(dateStr + 'T00:00:00');
+  return { text: d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' }), level: 'later' };
+}
+function formatDateFull(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function escapeHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function clientById(id) { return clients.find(c => c.id === id); }
+
+// --- Rendering ---
+function render() {
+  renderAgenda();
+  renderClients();
+}
+
+function renderAgenda() {
+  const list = upcomingAppointments();
+  const container = document.getElementById('agendaList');
+  document.getElementById('agendaCount').textContent = list.length ? `${list.length} in programma` : '';
+  container.innerHTML = '';
+  if (list.length === 0) {
+    container.innerHTML = '<div class="agenda-empty">Nessun appuntamento in programma. Aggiungine uno da un cliente qui sotto.</div>';
+    return;
+  }
+  list.forEach(a => {
+    const client = clientById(a.clientId);
+    if (!client) return;
+    const w = whenLabel(a.date);
+    const timeLabel = a.time ? ` · ${a.time}` : '';
+    const div = document.createElement('div');
+    div.className = `agenda-card level-${w.level}`;
+    div.innerHTML = `
+      <div class="agenda-top">
+        <div class="agenda-id">
+          <span class="agenda-dot"></span>
+          <div class="agenda-name-wrap">
+            <div class="agenda-name">${escapeHtml(client.name)}</div>
+            <div class="agenda-reason">${escapeHtml(a.reason || 'Appuntamento')}</div>
+          </div>
+        </div>
+        <span class="agenda-when">${w.text}${timeLabel}</span>
+      </div>
+      ${a.notes ? `<div class="agenda-note">${escapeHtml(a.notes)}</div>` : ''}
+      <div class="agenda-footer">
+        <button class="small view-client-btn" data-id="${client.id}">Vedi scheda</button>
+        <button class="small accent complete-btn" data-id="${a.id}">Segna completato</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+  container.querySelectorAll('.view-client-btn').forEach(btn => btn.addEventListener('click', () => focusClient(btn.dataset.id)));
+  container.querySelectorAll('.complete-btn').forEach(btn => btn.addEventListener('click', () => markCompleted(btn.dataset.id)));
+}
+
+function renderClients() {
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  const list = document.getElementById('clientList');
+  const emptyMsg = document.getElementById('emptyMsg');
+  list.innerHTML = '';
+
+  const filtered = clients.filter(c => {
+    if (!query) return true;
+    return [c.name, c.phone, c.email, c.notes].join(' ').toLowerCase().includes(query);
+  }).sort((a, b) => a.name.localeCompare(b.name));
+
+  emptyMsg.style.display = filtered.length === 0 ? 'block' : 'none';
+
+  filtered.forEach(c => {
+    const history = clientHistory(c.id);
+    const isOpen = openClientId === c.id;
+    const card = document.createElement('div');
+    card.className = 'client-card' + (isOpen ? ' open' : '');
+    card.dataset.id = c.id;
+
+    const historyHtml = history.length
+      ? history.map(a => `
+          <div class="history-item">
+            <div class="history-main">
+              <div class="history-date">${formatDateFull(a.date)}${a.time ? ' · ' + a.time : ''}</div>
+              <div class="history-reason">${escapeHtml(a.reason || 'Appuntamento')}</div>
+              ${a.notes ? `<div class="history-note">${escapeHtml(a.notes)}</div>` : ''}
+            </div>
+            <span class="history-status ${a.status}">${a.status}</span>
+            <div class="history-actions">
+              <button class="small edit-appt-btn" data-id="${a.id}">Modifica</button>
+            </div>
+          </div>
+        `).join('')
+      : '<div class="empty">Nessun appuntamento ancora.</div>';
+
+    card.innerHTML = `
+      <div class="client-summary">
+        <div>
+          <div class="client-name">${escapeHtml(c.name)}</div>
+          <div class="client-sub">${escapeHtml([c.phone, c.email].filter(Boolean).join(' · '))}</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="client-count">${history.length} appunt.</span>
+          <span class="chevron">&#8250;</span>
+        </div>
+      </div>
+      <div class="client-detail">
+        <div class="client-detail-grid">
+          <div><span>Telefono</span>${escapeHtml(c.phone || '—')}</div>
+          <div><span>Email</span>${escapeHtml(c.email || '—')}</div>
+        </div>
+        ${c.notes ? `<div class="client-notes">${escapeHtml(c.notes)}</div>` : ''}
+        <div class="client-actions">
+          <button class="small edit-client-btn" data-id="${c.id}">Modifica cliente</button>
+          <button class="small danger del-client-btn" data-id="${c.id}">Elimina cliente</button>
+          <button class="small accent new-appt-btn" data-id="${c.id}" style="margin-left:auto;">+ Nuovo appuntamento</button>
+        </div>
+        <div class="history-head"><h4>Storico appuntamenti</h4></div>
+        ${historyHtml}
+      </div>
+    `;
+
+    card.querySelector('.client-summary').addEventListener('click', () => {
+      openClientId = isOpen ? null : c.id;
+      renderClients();
+    });
+    list.appendChild(card);
+  });
+
+  list.querySelectorAll('.edit-client-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); openClientModal(btn.dataset.id); }));
+  list.querySelectorAll('.del-client-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); deleteClient(btn.dataset.id); }));
+  list.querySelectorAll('.new-appt-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); openApptModal(null, btn.dataset.id); }));
+  list.querySelectorAll('.edit-appt-btn').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); openApptModal(btn.dataset.id); }));
+}
+
+function focusClient(clientId) {
+  openClientId = clientId;
+  render();
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.client-card[data-id="${clientId}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
+
+function markCompleted(apptId) {
+  const a = appointments.find(x => x.id === apptId);
+  if (!a) return;
+  a.status = 'completato';
+  saveData();
+  render();
+}
+
+// --- Client modal ---
+function openClientModal(id) {
+  document.getElementById('clientForm').reset();
+  document.getElementById('c_id').value = '';
+  if (id) {
+    const c = clientById(id);
+    document.getElementById('clientModalTitle').textContent = 'Modifica cliente';
+    document.getElementById('c_id').value = c.id;
+    document.getElementById('c_name').value = c.name;
+    document.getElementById('c_phone').value = c.phone || '';
+    document.getElementById('c_email').value = c.email || '';
+    document.getElementById('c_notes').value = c.notes || '';
+  } else {
+    document.getElementById('clientModalTitle').textContent = 'Nuovo cliente';
+  }
+  document.getElementById('clientModalBackdrop').classList.add('open');
+}
+function closeClientModal() { document.getElementById('clientModalBackdrop').classList.remove('open'); }
+
+function deleteClient(id) {
+  const c = clientById(id);
+  if (!c) return;
+  const count = appointments.filter(a => a.clientId === id).length;
+  const msg = count > 0
+    ? `Eliminare ${c.name} e i suoi ${count} appuntamenti?`
+    : `Eliminare ${c.name}?`;
+  if (!confirm(msg)) return;
+  clients = clients.filter(x => x.id !== id);
+  appointments = appointments.filter(a => a.clientId !== id);
+  saveData();
+  render();
+}
+
+function handleClientSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('c_id').value;
+  const data = {
+    name: document.getElementById('c_name').value.trim(),
+    phone: document.getElementById('c_phone').value.trim(),
+    email: document.getElementById('c_email').value.trim(),
+    notes: document.getElementById('c_notes').value.trim(),
+  };
+  if (id) {
+    Object.assign(clientById(id), data);
+  } else {
+    const newClient = { id: 'c-' + Date.now(), ...data };
+    clients.push(newClient);
+    openClientId = newClient.id;
+  }
+  saveData();
+  closeClientModal();
+  render();
+}
+
+// --- Appointment modal ---
+function openApptModal(apptId, clientIdForNew) {
+  document.getElementById('apptForm').reset();
+  document.getElementById('a_id').value = '';
+  document.getElementById('apptDeleteBtn').style.display = 'none';
+  if (apptId) {
+    const a = appointments.find(x => x.id === apptId);
+    const c = clientById(a.clientId);
+    document.getElementById('apptModalTitle').textContent = 'Modifica appuntamento';
+    document.getElementById('a_id').value = a.id;
+    document.getElementById('a_clientId').value = a.clientId;
+    document.getElementById('a_clientName').textContent = c ? c.name : '—';
+    document.getElementById('a_date').value = a.date;
+    document.getElementById('a_time').value = a.time || '';
+    document.getElementById('a_reason').value = a.reason || '';
+    document.getElementById('a_status').value = a.status;
+    document.getElementById('a_notes').value = a.notes || '';
+    document.getElementById('apptDeleteBtn').style.display = 'inline-block';
+  } else {
+    const c = clientById(clientIdForNew);
+    document.getElementById('apptModalTitle').textContent = 'Nuovo appuntamento';
+    document.getElementById('a_clientId').value = clientIdForNew;
+    document.getElementById('a_clientName').textContent = c ? c.name : '—';
+    document.getElementById('a_date').value = todayISO();
+    document.getElementById('a_status').value = 'programmato';
+  }
+  document.getElementById('apptModalBackdrop').classList.add('open');
+}
+function closeApptModal() { document.getElementById('apptModalBackdrop').classList.remove('open'); }
+
+function handleApptSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('a_id').value;
+  const data = {
+    clientId: document.getElementById('a_clientId').value,
+    date: document.getElementById('a_date').value,
+    time: document.getElementById('a_time').value,
+    reason: document.getElementById('a_reason').value.trim(),
+    status: document.getElementById('a_status').value,
+    notes: document.getElementById('a_notes').value.trim(),
+  };
+  if (id) {
+    Object.assign(appointments.find(x => x.id === id), data);
+  } else {
+    appointments.push({ id: 'a-' + Date.now(), ...data });
+  }
+  saveData();
+  closeApptModal();
+  render();
+}
+function deleteAppt() {
+  const id = document.getElementById('a_id').value;
+  if (!id) return;
+  if (!confirm('Eliminare questo appuntamento?')) return;
+  appointments = appointments.filter(x => x.id !== id);
+  saveData();
+  closeApptModal();
+  render();
+}
+
+// --- Wire up ---
+document.getElementById('addClientBtn').addEventListener('click', () => openClientModal(null));
+document.getElementById('clientCancelBtn').addEventListener('click', closeClientModal);
+document.getElementById('clientModalBackdrop').addEventListener('click', (e) => { if (e.target.id === 'clientModalBackdrop') closeClientModal(); });
+document.getElementById('clientForm').addEventListener('submit', handleClientSubmit);
+
+document.getElementById('apptCancelBtn').addEventListener('click', closeApptModal);
+document.getElementById('apptModalBackdrop').addEventListener('click', (e) => { if (e.target.id === 'apptModalBackdrop') closeApptModal(); });
+document.getElementById('apptForm').addEventListener('submit', handleApptSubmit);
+document.getElementById('apptDeleteBtn').addEventListener('click', deleteAppt);
+
+document.getElementById('searchInput').addEventListener('input', () => renderClients());
+
+loadData();
+render();
+
+// Registra il service worker per il funzionamento offline (PWA).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
